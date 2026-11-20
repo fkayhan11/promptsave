@@ -194,6 +194,16 @@ def print_status():
     print(f"Tracked     : {len(reg)} project(s)")
 
 
+def default_center_dir():
+    """Return <repo>/projects for a source checkout, or ~/PromptSave/projects when pip-installed."""
+    repo_candidate = os.path.dirname(HERE)
+    if os.path.isfile(os.path.join(repo_candidate, "pyproject.toml")) or os.path.isfile(
+        os.path.join(repo_candidate, ".env.example")
+    ):
+        return os.path.join(repo_candidate, "projects")
+    return os.path.join(HOME, "PromptSave", "projects")
+
+
 def parse_args(argv):
     parser = argparse.ArgumentParser(
         description="Install, inspect, or uninstall PromptSave global CLI hooks."
@@ -204,7 +214,11 @@ def parse_args(argv):
     )
     parser.add_argument(
         "--set-center", action="store_true",
-        help="Set this repository's projects/ folder as the central prompt store.",
+        help="Reset the central prompt store to the default location for this checkout.",
+    )
+    parser.add_argument(
+        "--center", metavar="DIR",
+        help="Custom directory for your PromptSave vault (stores projects/ and .env inside DIR).",
     )
     parser.add_argument(
         "--status", action="store_true",
@@ -232,8 +246,16 @@ def main(argv=None):
         cfg_path = os.path.join(INSTALL_DIR, "config.json")
         cfg = load_json(cfg_path)
         current_center = cfg.get("center") or cfg.get("merkez")
-        if not current_center or args.set_center:
-            new_center = os.path.join(os.path.dirname(HERE), "projects")
+        if args.center:
+            custom = os.path.abspath(os.path.expanduser(args.center))
+            new_center = custom if os.path.basename(custom) == "projects" else os.path.join(custom, "projects")
+            cfg = {"center": new_center}
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, ensure_ascii=False, indent=2)
+                f.write("\n")
+            current_center = new_center
+        elif not current_center or args.set_center:
+            new_center = default_center_dir()
             cfg = {"center": new_center}
             with open(cfg_path, "w", encoding="utf-8") as f:
                 json.dump(cfg, f, ensure_ascii=False, indent=2)

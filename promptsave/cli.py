@@ -33,7 +33,7 @@ except ImportError:
 USAGE = f"""PromptSave v{__version__} — Encrypted prompt history vault for AI CLIs
 
 Commands:
-  install [--set-center]     Register global hooks and generate local .env key
+  install [--center DIR]     Register global hooks and generate local .env key
   uninstall                  Remove all global hooks (keeps saved prompts)
   status                     Show hook status, encryption mode, and tracked count
   init [path]                Start tracking the current directory (or [path])
