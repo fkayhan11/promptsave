@@ -1,0 +1,19 @@
+# Local encryption secret key (NEVER commit to Git!)
+.env
+.env.*
+!.env.example
+
+# Personal prompt logs & overview (NEVER commit private prompts to a public repo!)
+projects/*.md
+projects/*.md.enc
+projects/*.tmp
+summary/README.md
+
+# Local runtime / OS artifacts
+.DS_Store
+Thumbs.db
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
