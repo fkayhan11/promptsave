@@ -6,6 +6,8 @@ Registers the PromptSave lifecycle hook globally for:
   - Claude Code      (~/.claude/settings.json)
   - OpenAI Codex CLI (~/.codex/hooks.json)
   - Antigravity CLI  (~/.gemini/config/hooks.json)
+  - Gemini CLI       (~/.gemini/settings.json)
+  - Cursor           (~/.cursor/hooks.json)
 
 Also generates a local `.env` file with a unique 256-bit `PROMPTSAVE_KEY` so
 your saved prompt logs are encrypted at rest and private to your machine.
@@ -39,6 +41,8 @@ PY = sys.executable or "python3"
 CLAUDE_SETTINGS = os.path.join(HOME, ".claude", "settings.json")
 CODEX_HOOKS = os.path.join(HOME, ".codex", "hooks.json")
 AGY_HOOKS = os.path.join(HOME, ".gemini", "config", "hooks.json")
+GEMINI_SETTINGS = os.path.join(HOME, ".gemini", "settings.json")
+CURSOR_HOOKS = os.path.join(HOME, ".cursor", "hooks.json")
 
 TAG = "promptsave"
 
@@ -81,17 +85,20 @@ def strip_ours(groups):
     return out
 
 
-def update_claude_style(data, tool, remove):
+def update_claude_style(data, tool, remove, event="UserPromptSubmit"):
     hooks = data.setdefault("hooks", {})
-    groups = strip_ours(hooks.get("UserPromptSubmit"))
+    groups = strip_ours(hooks.get(event))
     if not remove:
-        groups.append(
-            {"hooks": [{"type": "command", "command": hook_command(tool), "timeout": 10}]}
-        )
+        entry = {"type": "command", "command": hook_command(tool), "timeout": 10}
+        if tool == "gemini":
+            entry["name"] = TAG
+            groups.append({"matcher": "", "hooks": [entry]})
+        else:
+            groups.append({"hooks": [entry]})
     if groups:
-        hooks["UserPromptSubmit"] = groups
+        hooks[event] = groups
     else:
-        hooks.pop("UserPromptSubmit", None)
+        hooks.pop(event, None)
     if not hooks:
         data.pop("hooks", None)
     return data
@@ -108,11 +115,34 @@ def update_antigravity(data, remove):
     return data
 
 
+def update_cursor(data, remove):
+    if not remove:
+        data.setdefault("version", 1)
+    hooks = data.setdefault("hooks", {})
+    entries = [
+        e for e in hooks.get("beforeSubmitPrompt", [])
+        if TAG not in e.get("command", "")
+    ]
+    if not remove:
+        entries.append({"command": hook_command("cursor")})
+    if entries:
+        hooks["beforeSubmitPrompt"] = entries
+    else:
+        hooks.pop("beforeSubmitPrompt", None)
+    if not hooks:
+        data.pop("hooks", None)
+    return data
+
+
 def has_hook(path, style):
     data = load_json(path)
     if style == "agy":
         return TAG in data
-    groups = data.get("hooks", {}).get("UserPromptSubmit", [])
+    if style == "cursor":
+        entries = data.get("hooks", {}).get("beforeSubmitPrompt", [])
+        return any(TAG in e.get("command", "") for e in entries)
+    event = "BeforeAgent" if style == "gemini" else "UserPromptSubmit"
+    groups = data.get("hooks", {}).get(event, [])
     return any(
         TAG in h.get("command", "")
         for g in groups
@@ -147,7 +177,9 @@ def print_status():
     reg = load_json(os.path.join(INSTALL_DIR, ".projects.json"))
     env_path = os.path.join(os.path.dirname(center), ".env") if center else ""
     env_vals = crypto.load_env(env_path) if env_path else {}
-    enc_active = bool(env_vals.get("PROMPTSAVE_KEY")) and env_vals.get("PROMPTSAVE_ENCRYPT", "true").lower() in ("1", "true", "yes", "on")
+    enc_active = bool(env_vals.get("PROMPTSAVE_KEY")) and env_vals.get(
+        "PROMPTSAVE_ENCRYPT", "true"
+    ).lower() in ("1", "true", "yes", "on")
 
     print("PromptSave Status")
     print("-" * 44)
@@ -155,6 +187,8 @@ def print_status():
     print(f"Claude Code : {'ACTIVE' if has_hook(CLAUDE_SETTINGS, 'claude') else 'NOT INSTALLED'}")
     print(f"Codex CLI   : {'ACTIVE' if has_hook(CODEX_HOOKS, 'codex') else 'NOT INSTALLED'}")
     print(f"Antigravity : {'ACTIVE' if has_hook(AGY_HOOKS, 'agy') else 'NOT INSTALLED'}")
+    print(f"Gemini CLI  : {'ACTIVE' if has_hook(GEMINI_SETTINGS, 'gemini') else 'NOT INSTALLED'}")
+    print(f"Cursor      : {'ACTIVE' if has_hook(CURSOR_HOOKS, 'cursor') else 'NOT INSTALLED'}")
     print(f"Center dir  : {center or '(not configured)'}")
     print(f"Encryption  : {'ENABLED (.env)' if enc_active else 'DISABLED'}")
     print(f"Tracked     : {len(reg)} project(s)")
@@ -219,6 +253,11 @@ def main(argv=None):
     save_json(CLAUDE_SETTINGS, update_claude_style(load_json(CLAUDE_SETTINGS), "claude", remove))
     save_json(CODEX_HOOKS, update_claude_style(load_json(CODEX_HOOKS), "codex", remove))
     save_json(AGY_HOOKS, update_antigravity(load_json(AGY_HOOKS), remove))
+    save_json(
+        GEMINI_SETTINGS,
+        update_claude_style(load_json(GEMINI_SETTINGS), "gemini", remove, event="BeforeAgent"),
+    )
+    save_json(CURSOR_HOOKS, update_cursor(load_json(CURSOR_HOOKS), remove))
 
     if remove:
         shutil.rmtree(INSTALL_DIR, ignore_errors=True)
@@ -228,8 +267,10 @@ def main(argv=None):
         print("  Claude Code  ->", CLAUDE_SETTINGS)
         print("  Codex CLI    ->", CODEX_HOOKS)
         print("  Antigravity  ->", AGY_HOOKS)
-        print("\nNext step: copy the `promptsave/` folder into any project you want to track.")
-        print("Read encrypted logs with: python3 promptsave/vault.py view <project>")
+        print("  Gemini CLI   ->", GEMINI_SETTINGS)
+        print("  Cursor       ->", CURSOR_HOOKS)
+        print("\nNext step: run `promptsave init` in any project (or copy the `promptsave/` folder).")
+        print("Read encrypted logs with: promptsave view <project>")
         print("Note for Codex CLI: approve the hook once when prompted (or run `/hooks`).")
 
 

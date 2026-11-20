@@ -8,6 +8,7 @@ import unittest
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK_SCRIPT = os.path.join(REPO_ROOT, "promptsave", "hook.py")
 VAULT_SCRIPT = os.path.join(REPO_ROOT, "promptsave", "vault.py")
+CLI_SCRIPT = os.path.join(REPO_ROOT, "promptsave", "cli.py")
 sys.path.insert(0, os.path.join(REPO_ROOT, "promptsave"))
 import crypto  # noqa: E402
 import hook  # noqa: E402
@@ -209,6 +210,73 @@ class TestPromptSaveHook(unittest.TestCase):
         self.assertEqual(hook.code_fence_for("plain text"), "```")
         self.assertEqual(hook.code_fence_for("```code```"), "````")
         self.assertEqual(hook.code_fence_for("````code````"), "`````")
+
+    def test_gemini_and_cursor_with_bom_and_search_stats_export(self):
+        proj = self.make_project("ml-lab")
+
+        # Gemini CLI hook expects {"decision": "allow"}
+        g_out = self.run_hook("gemini", {"prompt": "Train a random forest model", "cwd": proj})
+        self.assertEqual(json.loads(g_out), {"decision": "allow"})
+
+        # Cursor hook with UTF-8 BOM expects {"continue": true}
+        bom_payload = "\ufeff" + json.dumps(
+            {"prompt": "Plot ROC curve in matplotlib", "workspace_roots": [proj]}
+        )
+        proc = subprocess.run(
+            [sys.executable, HOOK_SCRIPT, "cursor"],
+            input=bom_payload,
+            text=True,
+            capture_output=True,
+            env=self.env,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(json.loads(proc.stdout), {"continue": True})
+
+        # Search across encrypted vault
+        s_res = self.run_vault("search", "random forest", "--tool", "gemini")
+        self.assertEqual(s_res.returncode, 0, s_res.stderr)
+        self.assertIn("ml-lab #1", s_res.stdout)
+        self.assertIn("Found 1 matching prompt(s).", s_res.stdout)
+
+        # Stats
+        st_res = self.run_vault("stats")
+        self.assertEqual(st_res.returncode, 0, st_res.stderr)
+        self.assertIn("Total prompts  : 2", st_res.stdout)
+        self.assertIn("Gemini CLI", st_res.stdout)
+        self.assertIn("Cursor", st_res.stdout)
+
+        # Export JSON and HTML
+        json_out = os.path.join(self.root, "export.json")
+        html_out = os.path.join(self.root, "export.html")
+        self.assertEqual(
+            self.run_vault("export", "ml-lab", "--format", "json", "--output", json_out).returncode,
+            0,
+        )
+        exported = json.loads(self.read_text(json_out))
+        self.assertEqual(exported["project"], "ml-lab")
+        self.assertEqual(len(exported["prompts"]), 2)
+
+        self.assertEqual(
+            self.run_vault("export", "ml-lab", "--format", "html", "--output", html_out).returncode,
+            0,
+        )
+        self.assertIn("Plot ROC curve in matplotlib", self.read_text(html_out))
+
+    def test_cli_init_command(self):
+        new_proj = os.path.join(self.root, "cli-init-project")
+        os.makedirs(new_proj, exist_ok=True)
+        proc = subprocess.run(
+            [sys.executable, CLI_SCRIPT, "init", new_proj],
+            text=True,
+            capture_output=True,
+            env=self.env,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(os.path.isfile(os.path.join(new_proj, ".promptsave")))
+        self.run_hook("claude", {"prompt": "Initialized via CLI", "cwd": new_proj})
+        self.assertTrue(os.path.isfile(os.path.join(self.center_dir, "cli-init-project.md.enc")))
 
 
 if __name__ == "__main__":

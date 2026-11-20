@@ -1,54 +1,68 @@
+<div align="center">
+
 # PromptSave
+
+**Your private, encrypted prompt history vault for terminal AI coding assistants.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-3776AB.svg)](https://www.python.org/)
-[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-brightgreen.svg)](#)
+[![Dependencies: Zero](https://img.shields.io/badge/Dependencies-Zero-brightgreen.svg)](#)
 [![Platforms](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](#)
+[![AI CLIs: 5 Supported](https://img.shields.io/badge/AI%20CLIs-5%20Supported-8A2BE2.svg)](#supported-ai-tools)
 
-**PromptSave** automatically captures every prompt you send to terminal AI coding assistants — **Claude Code**, **OpenAI Codex CLI**, and **Antigravity CLI** — and stores them as numbered Markdown logs (`1, 2, 3, ...`) inside **one central encrypted vault**, organized by project.
+[Features](#features) · [How It Works](#how-it-works) · [Quick Start](#quick-start) · [Vault CLI](#vault-cli) · [Security](#privacy--security) · [Contributing](CONTRIBUTING.md)
 
-No manual copy-pasting. No lost prompt history when you close your terminal or switch between AI tools. And with built-in **`.env` encryption**, your prompts stay strictly private to your machine.
+</div>
+
+---
+
+When you build projects across **Claude Code**, **OpenAI Codex CLI**, **Antigravity CLI**, **Gemini CLI**, and **Cursor**, your prompt history gets scattered across sessions and lost the moment you close a terminal.
+
+**PromptSave** hooks natively into all five tools and automatically saves every prompt you write into **one central, encrypted vault** — organized by project, numbered `1, 2, 3, ...`, and searchable in milliseconds.
 
 ---
 
 ## Features
 
-- **Multi-CLI Support:** Captures prompts from **Claude Code**, **OpenAI Codex CLI**, and **Antigravity CLI** in one unified history.
-- **Drop-In Project Tracking:** Copy the `promptsave/` folder into any project to start tracking it — no extra commands or flags needed per project.
-- **Encrypted by Default (`.env`):** Every user gets a unique, locally generated 256-bit `PROMPTSAVE_KEY` in `.env`. Prompt files are encrypted at rest (`projects/<project>.md.enc`) using PBKDF2-HMAC-SHA256 + SHA-256-CTR + HMAC-SHA256 (Encrypt-then-MAC).
-- **Strict User Isolation:** `.env`, encrypted logs, and plaintext logs are all gitignored by default. Users who clone this repository can **never** see each other's prompts.
-- **Zero Dependencies:** Pure Python 3.8+ standard library. Works on macOS, Linux, and Windows.
-- **Non-Blocking:** Runs silently via native CLI lifecycle hooks and never interrupts your AI session.
+- **5 AI Tools, 1 Unified Vault** — Works simultaneously with **Claude Code**, **OpenAI Codex CLI**, **Antigravity CLI**, **Gemini CLI**, and **Cursor**.
+- **Zero-Friction Project Tracking** — Run `promptsave init` inside any project (or simply drop the `promptsave/` folder in). Untracked folders are completely ignored.
+- **Encrypted by Default (`.env`)** — Every installation generates a unique, local 256-bit `PROMPTSAVE_KEY` in `.env`. Logs are stored encrypted (`projects/<project>.md.enc`) using `PBKDF2-HMAC-SHA256` + `SHA-256-CTR` + `HMAC-SHA256`.
+- **Search, Stats & Export** — Search across all encrypted projects without writing plaintext to disk, view usage breakdowns by AI tool, or export any project to **JSON**, **Markdown**, or **dark-mode HTML**.
+- **100% Local & Zero Dependencies** — Pure Python 3.8+ standard library. No cloud, no telemetry, no `pip` dependencies, and never blocks your AI CLI.
 
 ---
 
-## Folder Structure
+## How It Works
 
-```text
-promptsave/
-├── .env.example           # Template for local encryption settings
-├── .env                   # Auto-generated local secret key (gitignored, chmod 600)
-├── projects/              # Per-project encrypted prompt logs (gitignored)
-│   ├── my-web-app.md.enc  # Prompts 1, 2, 3, ... (encrypted with your .env key)
-│   └── api-service.md.enc
-├── summary/               # Auto-generated overview table (README.md, gitignored)
-├── promptsave/            # Drop-in folder you copy into projects you want to track
-│   ├── .promptsave        # Marker file (do not delete)
-│   ├── crypto.py          # Zero-dependency authenticated encryption module
-│   ├── hook.py            # CLI hook script that captures and logs prompts
-│   ├── install.py         # One-time global hook & .env installer
-│   └── vault.py           # CLI to list, view, unlock, and lock encrypted logs
-├── examples/              # Sanitized sample Markdown output
-└── tests/                 # Unit tests
+```mermaid
+flowchart LR
+    A["Claude Code / Codex / Antigravity / Gemini CLI / Cursor"] -->|"Native Lifecycle Hook"| B["~/.promptsave/hook.py"]
+    B -->|"Checks .promptsave marker"| C{"Tracked Project?"}
+    C -->|"No"| D["Ignore silently"]
+    C -->|"Yes"| E["Encrypt with .env key (PBKDF2 + CTR + HMAC)"]
+    E --> F["projects/&lt;project&gt;.md.enc"]
+    F --> G["promptsave view / search / stats / export"]
 ```
 
-All internal runtime state files (`.lock`, `.state.json`, `.projects.json`) are stored out of sight in `~/.promptsave/`.
+---
+
+## Supported AI Tools
+
+| AI Tool | Hook Event | Global Config File |
+| --- | --- | --- |
+| **Claude Code** | `UserPromptSubmit` | `~/.claude/settings.json` |
+| **OpenAI Codex CLI** | `UserPromptSubmit` | `~/.codex/hooks.json` |
+| **Antigravity CLI** | `PreInvocation` | `~/.gemini/config/hooks.json` |
+| **Gemini CLI** | `BeforeAgent` | `~/.gemini/settings.json` |
+| **Cursor** | `beforeSubmitPrompt` | `~/.cursor/hooks.json` |
+
+> **One-time Codex approval:** For security, Codex CLI asks you once to trust newly added hooks. The next time you open `codex`, select **`2. Trust all and continue`** (or run `/hooks`).
 
 ---
 
 ## Quick Start
 
-### 1. Clone and install once per machine
+### 1. Clone and install (once per machine)
 
 ```bash
 git clone https://github.com/fkayhan11/promptsave.git
@@ -56,93 +70,147 @@ cd promptsave
 python3 promptsave/install.py
 ```
 
-This does two things:
-1. Generates a unique, private 256-bit encryption key in `.env` (never committed to Git).
-2. Registers the global lifecycle hook for all three AI CLIs:
+*(Optional)* Install the global `promptsave` command so you can run it from anywhere:
 
-| AI CLI | Hook Event | Config File |
-| --- | --- | --- |
-| **Claude Code** | `UserPromptSubmit` | `~/.claude/settings.json` |
-| **OpenAI Codex CLI** | `UserPromptSubmit` | `~/.codex/hooks.json` |
-| **Antigravity CLI** | `PreInvocation` | `~/.gemini/config/hooks.json` |
+```bash
+pip install -e .
+```
 
-> **One-time Codex approval:** For security, Codex CLI prompts you once to trust newly added hooks. The next time you open `codex`, choose **`2. Trust all and continue`** (or run `/hooks`). After that, it works across all projects automatically.
+`install.py` automatically:
+1. Generates a unique 256-bit `PROMPTSAVE_KEY` in `.env` (`chmod 600`, gitignored).
+2. Registers the non-blocking hook across all 5 supported AI tools (backing up existing configs to `~/.promptsave/backups/`).
 
 ### 2. Track any project
 
-Copy the `promptsave/` folder into any project you want to track:
+Pick whichever workflow you prefer:
 
 ```bash
-cp -R promptsave /path/to/my-web-app/
+# Option A: One-command CLI init (creates a .promptsave marker)
+cd /path/to/my-web-app
+promptsave init
+
+# Option B: Drop-in folder copy (works even without pip install)
+cp -R /path/to/promptsave/promptsave /path/to/my-web-app/
 ```
 
-Open `claude`, `codex`, or `agy` anywhere inside `/path/to/my-web-app/` and write prompts normally. Every prompt is automatically encrypted and appended to `projects/my-web-app.md.enc`.
-
-Untracked projects (folders without `promptsave/`) are completely ignored.
-
-### 3. Read your saved prompts
-
-Use `vault.py` to read your encrypted prompts with your local `.env` key:
-
-```bash
-# List all tracked projects
-python3 promptsave/vault.py list
-
-# Decrypt and print a project's prompts directly in the terminal (no plaintext written to disk)
-python3 promptsave/vault.py view my-web-app
-
-# Temporarily decrypt all logs to readable .md files for browsing in your editor
-python3 promptsave/vault.py unlock
-
-# Re-encrypt and remove plaintext .md copies when done
-python3 promptsave/vault.py lock
-```
+That's it. Every prompt you type in `claude`, `codex`, `agy`, `gemini`, or Cursor inside that project (or any of its subdirectories) is automatically encrypted and appended to `projects/my-web-app.md.enc`.
 
 ---
 
-## Example Output
+## Vault CLI
 
-See [`examples/example-project.md`](examples/example-project.md) and [`examples/README.md`](examples/README.md):
+Every command works via `promptsave <cmd>` (if installed with `pip install -e .`) or directly via `python3 promptsave/vault.py <cmd>`.
 
-```markdown
-# my-web-app — Prompt History
-
-> Project path: `/path/to/my-web-app`
-
-## 1. Claude Code · 2026-11-20 10:15
-
-    Scaffold a responsive login page with email/password validation.
-
-## 2. Codex · 2026-11-20 10:28
-
-    Add unit tests for the login form validation rules.
-```
-
----
-
-## Installer Commands
+### View & List
 
 ```bash
-# Check installation status, encryption mode, and tracked projects
-python3 promptsave/install.py --status
+promptsave list
+promptsave view my-web-app
+```
 
-# Move the repository to a new location and update the central log path
-python3 promptsave/install.py --set-center
+### Search Across Encrypted Logs
 
-# Uninstall all global hooks (your saved logs and .env are NOT deleted)
-python3 promptsave/install.py --uninstall
+Decrypts purely in memory — never writes plaintext to disk:
+
+```bash
+promptsave search "auth" --tool claude
+```
+
+```text
+[my-web-app #1] Claude Code · 2026-11-20 10:15
+  Scaffold a responsive login page with email/password validation.
+
+Found 1 matching prompt(s).
+```
+
+### Usage Statistics
+
+```bash
+promptsave stats
+```
+
+```text
+PromptSave Statistics
+================================================
+Total projects : 3
+Total prompts  : 24
+
+By AI Tool:
+  Claude Code      11  ####################
+  Antigravity       7  #############
+  Codex             4  #######
+  Cursor            2  ####
+
+By Project:
+  my-web-app                14 prompt(s)
+  ml-lab                     6 prompt(s)
+  api-service                4 prompt(s)
+```
+
+### Export (JSON, Markdown, Dark-Mode HTML)
+
+```bash
+promptsave export my-web-app --format json --output my-web-app.json
+promptsave export my-web-app --format html --output my-web-app.html
+promptsave export my-web-app --format md   --output my-web-app.md
+```
+
+### Temporary Editor Browsing (`unlock` / `lock`)
+
+```bash
+# Temporarily decrypt projects/*.md.enc -> projects/*.md to browse in VS Code
+promptsave unlock
+
+# Re-encrypt and remove all plaintext .md copies when finished
+promptsave lock
+```
+
+### Maintenance
+
+```bash
+promptsave status                    # Check active hooks, encryption mode, and tracked count
+promptsave install --set-center      # Update central log path after moving the repo
+promptsave uninstall                 # Remove global hooks (saved logs & .env are untouched)
 ```
 
 ---
 
 ## Privacy & Security
 
-- **100% Local:** PromptSave makes zero network requests. Every user's prompts stay exclusively on their own computer.
-- **Unique Key Per User:** `install.py` generates a fresh random 256-bit `PROMPTSAVE_KEY` in `.env` with `0600` permissions (owner read/write only).
-- **Authenticated Encryption:** Encrypted files use PBKDF2-HMAC-SHA256 (200,000 iterations), unique random salt & nonce per write, SHA-256 CTR stream encryption, and HMAC-SHA256 integrity verification. Tampered files or wrong keys are rejected immediately.
-- **Double Git Protection:** `.gitignore` blocks `.env`, `projects/*.md`, `projects/*.md.enc`, and `summary/README.md` by default. Even if an encrypted `.md.enc` file were ever copied elsewhere, it cannot be decrypted without the owner's private `.env` key.
-- **Optional Plaintext Mode:** If you prefer unencrypted local Markdown files, set `PROMPTSAVE_ENCRYPT=false` in `.env`.
-- **Safe Config Backups:** Existing CLI config files are backed up to `~/.promptsave/backups/` before any change.
+PromptSave is built so that **users who clone this repository can never see each other's prompts**:
+
+| Layer | Protection |
+| --- | --- |
+| **Per-User Secret Key** | `install.py` generates a fresh 256-bit `PROMPTSAVE_KEY` locally in `.env` (`0600` permissions). Only `.env.example` exists in Git. |
+| **Authenticated Encryption** | `PBKDF2-HMAC-SHA256` (200,000 iterations, random 16-byte salt) + `SHA-256-CTR` (random 16-byte nonce per write) + `HMAC-SHA256` (Encrypt-then-MAC). Wrong keys or tampered files are rejected immediately. |
+| **Double Git Isolation** | `.gitignore` blocks `.env`, `projects/*.md`, `projects/*.md.enc`, and `summary/README.md` by default. |
+| **Zero Telemetry** | 100% offline. No network requests, ever. |
+
+> Prefer unencrypted local Markdown files? Set `PROMPTSAVE_ENCRYPT=false` in `.env` (files remain gitignored).
+
+---
+
+## Folder Structure
+
+```text
+promptsave/
+├── .env.example           # Template for local encryption config
+├── .env                   # Auto-generated local 256-bit key (gitignored)
+├── projects/              # Per-project encrypted logs: <project>.md.enc (gitignored)
+├── summary/               # Auto-generated overview table: README.md (gitignored)
+├── promptsave/
+│   ├── .promptsave        # Drop-in project marker
+│   ├── cli.py             # Unified `promptsave` CLI entry point
+│   ├── crypto.py          # Zero-dependency authenticated encryption
+│   ├── hook.py            # Multi-CLI lifecycle hook handler
+│   ├── install.py         # Global hook & .env installer
+│   └── vault.py           # list, view, search, stats, export, unlock, lock
+├── examples/              # Sanitized sample Markdown output
+├── tests/                 # Unit test suite
+└── pyproject.toml         # Standard Python packaging metadata
+```
+
+Runtime state files (`.lock`, `.state.json`, `.projects.json`, config backups) are kept out of sight in `~/.promptsave/`.
 
 ---
 
@@ -154,6 +222,7 @@ python3 -m unittest discover -s tests -v
 
 ---
 
-## License
+## Contributing & License
 
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 Licensed under the [MIT License](LICENSE).

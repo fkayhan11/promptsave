@@ -40,6 +40,8 @@ TOOL_NAMES = {
     "claude": "Claude Code",
     "codex": "Codex",
     "antigravity": "Antigravity",
+    "gemini": "Gemini CLI",
+    "cursor": "Cursor",
 }
 
 
@@ -180,7 +182,11 @@ def extract(tool, data):
         prompt = data.get("lastUserInput", "")
         session = data.get("conversationId", "")
         cwds = [data.get("cwd")] + list(data.get("workspacePaths") or [])
-    else:  # claude & codex
+    elif tool == "cursor":
+        prompt = data.get("prompt") or ""
+        session = data.get("conversation_id") or data.get("session_id") or ""
+        cwds = [data.get("cwd")] + list(data.get("workspace_roots") or [])
+    else:  # claude, codex, gemini
         prompt = data.get("prompt") or data.get("user_prompt") or ""
         session = data.get("session_id") or data.get("sessionId") or ""
         cwds = [data.get("cwd")]
@@ -365,9 +371,19 @@ def append_entry(center, project_path, tool, prompt):
         write_index(center, projects, encrypted, key)
 
 
+def emit_allow_response(tool):
+    """Print tool-specific non-blocking allow JSON to stdout when required."""
+    if tool == "antigravity":
+        print("{}")
+    elif tool == "gemini":
+        print('{"decision": "allow"}')
+    elif tool == "cursor":
+        print('{"continue": true}')
+
+
 def main():
     tool = sys.argv[1] if len(sys.argv) > 1 else "claude"
-    raw = sys.stdin.read()
+    raw = sys.stdin.read().lstrip("\ufeff")
     try:
         data = json.loads(raw) if raw.strip() else {}
     except Exception:
@@ -381,14 +397,13 @@ def main():
         if project and not already_logged(tool, session, prompt, data):
             append_entry(center, project, tool, prompt)
 
-    if tool == "antigravity":
-        print("{}")
+    emit_allow_response(tool)
 
 
 if __name__ == "__main__":
     try:
         main()
     except Exception:
-        if len(sys.argv) > 1 and sys.argv[1] == "antigravity":
-            print("{}")
+        if len(sys.argv) > 1:
+            emit_allow_response(sys.argv[1])
     sys.exit(0)
