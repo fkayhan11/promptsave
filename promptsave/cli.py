@@ -28,6 +28,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+import gui  # noqa: E402
 import install as installer  # noqa: E402
 import vault  # noqa: E402
 import web  # noqa: E402
@@ -35,7 +36,7 @@ import web  # noqa: E402
 try:
     from promptsave import __version__
 except ImportError:
-    __version__ = "1.2.0"
+    __version__ = "1.3.0"
 
 USAGE = f"""PromptSave v{__version__} — Encrypted prompt history vault for AI CLIs
 
@@ -54,6 +55,7 @@ Commands:
   unpin <tag>                Remove a pinned prompt
   stats                      Show usage statistics by AI tool and project
   export <project> [options] Export prompts to json, md, or html
+  gui                        Launch the native dark-mode desktop GUI (`python3 main.py`)
   ui [--port 8787]           Launch the local web dashboard (localhost only)
   unlock                     Temporarily decrypt .md.enc -> .md for browsing
   lock                       Encrypt .md -> .md.enc and remove plaintext copies
@@ -108,6 +110,8 @@ def main(argv=None):
         installer.main(["--status"])
     elif cmd == "init":
         cmd_init(rest)
+    elif cmd == "gui":
+        gui.main(rest)
     elif cmd == "ui":
         web.main(rest)
     elif cmd in VAULT_COMMANDS:

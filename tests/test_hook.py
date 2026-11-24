@@ -350,6 +350,19 @@ class TestPromptSaveHook(unittest.TestCase):
         self.assertEqual(snap["projects"][0]["name"], "shop-api")
         self.assertEqual(snap["projects"][0]["entries"][0]["git"], "feat/auth @ abc1234")
 
+    def test_main_launcher_help_and_gui_import(self):
+        import gui  # noqa: F401
+
+        main_script = os.path.join(REPO_ROOT, "main.py")
+        proc = subprocess.run(
+            [sys.executable, main_script, "--help"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("--web", proc.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

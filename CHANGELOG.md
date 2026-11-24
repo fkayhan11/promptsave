@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-11-24
+
+### Added
+- **Native Desktop GUI (`python3 main.py` / `promptsave gui`)** — Zero-dependency dark-mode desktop application built with `tkinter`, featuring a project sidebar, live search, AI tool filtering, one-click Copy, Pin/Unpin, Copy AI Handoff, Export (HTML/JSON/MD), Stats dialog, and `+ Track Project Folder` picker.
+- `main.py` root launcher supporting both desktop GUI (`python3 main.py`) and browser UI (`python3 main.py --web`).
+
 ## [1.2.0] - 2026-11-24
 
 ### Added

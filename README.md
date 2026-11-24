@@ -9,7 +9,7 @@
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-3776AB.svg)](https://www.python.org/)
 [![Dependencies: Zero](https://img.shields.io/badge/Dependencies-Zero-16a34a.svg)](#)
 [![Platforms](https://img.shields.io/badge/OS-macOS%20%7C%20Linux%20%7C%20Windows-475569.svg)](#)
-[![Release](https://img.shields.io/badge/Version-v1.2.0-7c3aed.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/Version-v1.3.0-7c3aed.svg)](CHANGELOG.md)
 
 [Installation](#installation) · [Quick Start](#quick-start) · [Dashboard](#local-web-dashboard) · [Commands](#command-reference) · [Supported Tools](#supported-ai-tools) · [Security](#security--privacy) · [FAQ](#faq)
 
@@ -82,10 +82,11 @@ promptsave init
 
 Open `claude`, `codex`, `agy`, `gemini`, or **Cursor** inside that project (or any subfolder). Untracked folders are silently ignored.
 
-### 3. Browse, search, handoff, or launch the local UI
+### 3. Browse, search, handoff, or launch the GUI
 
 ```bash
-promptsave ui                                # Open localhost dark-mode dashboard
+python3 main.py                              # Launch native dark-mode desktop GUI (or `promptsave gui`)
+promptsave ui                                # Or open localhost dark-mode web dashboard
 promptsave handoff my-web-app --last 10      # Copy context brief to switch AI tools
 promptsave search "auth" --tool claude       # Search across all encrypted logs
 promptsave pin my-web-app 4 --tag auth-fix   # Save a reusable prompt under a tag
@@ -95,9 +96,9 @@ promptsave stats                             # View usage breakdown by AI tool &
 
 ---
 
-## Local Web Dashboard
+## Desktop GUI & Local Web Dashboard
 
-Run `promptsave ui` to browse, filter, search, pin, and copy handoffs in a zero-dependency localhost UI (`127.0.0.1:8787`) — decrypted purely in memory:
+Launch the **native dark-mode desktop app** anytime with `python3 main.py` (or `promptsave gui`) — or open the **browser dashboard** with `promptsave ui` (`127.0.0.1:8787`). Both decrypt your `.env`-protected logs purely in memory and include live search, AI tool filters, `+ Track Project Folder`, one-click Copy, Pin, Export, and **Copy Handoff**:
 
 <p align="center">
   <img src="assets/dashboard-preview.jpg" alt="PromptSave Vault Local Web Dashboard" width="92%" />
@@ -167,6 +168,7 @@ If you accidentally paste a key or token into a prompt, PromptSave scrubs it bef
 | `promptsave install [--center DIR]` | Register global hooks for all 5 AI CLIs and generate `.env` key |
 | `promptsave status` | Show active hooks, vault path, encryption, redaction, and tracked count |
 | `promptsave init [path]` | Create a `.promptsave` marker to start tracking a project |
+| `python3 main.py` / `promptsave gui` | Launch the native dark-mode desktop GUI (`tkinter`) |
 | `promptsave ui [--port 8787]` | Launch the local dark-mode web dashboard (`127.0.0.1` only) |
 | `promptsave handoff <project> [--last N]` | Build & copy a chronological context brief for switching AI CLIs |
 | `promptsave list` | List all saved projects (`encrypted` / `plaintext`) |
