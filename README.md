@@ -1,10 +1,9 @@
 <div align="center">
 
-# PromptSave
+<img src="assets/banner.jpg" alt="PromptSave — Encrypted Prompt History Vault for AI CLIs" width="100%" />
 
-**Automatic, encrypted prompt history vault for terminal AI coding assistants.**
-
-Capture every prompt across **Claude Code**, **OpenAI Codex CLI**, **Antigravity CLI**, **Gemini CLI**, and **Cursor** — with **`.env` encryption**, **automatic secret redaction**, **Git branch tagging**, **instant AI handoff**, and a **local web dashboard**.
+<br />
+<br />
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-2563eb.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-3776AB.svg)](https://www.python.org/)
@@ -12,7 +11,7 @@ Capture every prompt across **Claude Code**, **OpenAI Codex CLI**, **Antigravity
 [![Platforms](https://img.shields.io/badge/OS-macOS%20%7C%20Linux%20%7C%20Windows-475569.svg)](#)
 [![Release](https://img.shields.io/badge/Version-v1.2.0-7c3aed.svg)](CHANGELOG.md)
 
-[Installation](#installation) · [Quick Start](#quick-start) · [Key Features](#key-features) · [Commands](#command-reference) · [Supported Tools](#supported-ai-tools) · [Security](#security--privacy) · [FAQ](#faq)
+[Installation](#installation) · [Quick Start](#quick-start) · [Dashboard](#local-web-dashboard) · [Commands](#command-reference) · [Supported Tools](#supported-ai-tools) · [Security](#security--privacy) · [FAQ](#faq)
 
 </div>
 
@@ -93,6 +92,16 @@ promptsave pin my-web-app 4 --tag auth-fix   # Save a reusable prompt under a ta
 promptsave copy auth-fix                     # Copy pinned prompt to clipboard
 promptsave stats                             # View usage breakdown by AI tool & project
 ```
+
+---
+
+## Local Web Dashboard
+
+Run `promptsave ui` to browse, filter, search, pin, and copy handoffs in a zero-dependency localhost UI (`127.0.0.1:8787`) — decrypted purely in memory:
+
+<p align="center">
+  <img src="assets/dashboard-preview.jpg" alt="PromptSave Vault Local Web Dashboard" width="92%" />
+</p>
 
 ---
 
