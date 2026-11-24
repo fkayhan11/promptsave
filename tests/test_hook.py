@@ -12,6 +12,8 @@ CLI_SCRIPT = os.path.join(REPO_ROOT, "promptsave", "cli.py")
 sys.path.insert(0, os.path.join(REPO_ROOT, "promptsave"))
 import crypto  # noqa: E402
 import hook  # noqa: E402
+import redact  # noqa: E402
+import web  # noqa: E402
 
 
 class TestCrypto(unittest.TestCase):
@@ -277,6 +279,76 @@ class TestPromptSaveHook(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(new_proj, ".promptsave")))
         self.run_hook("claude", {"prompt": "Initialized via CLI", "cwd": new_proj})
         self.assertTrue(os.path.isfile(os.path.join(self.center_dir, "cli-init-project.md.enc")))
+
+    def test_secret_redaction(self):
+        sample = (
+            "Use key sk-proj-abcdefghijklmnopqrstuvwxyz123456 and "
+            "ghp_1234567890abcdefghijklmnopqrstuv and AKIAIOSFODNN7EXAMPLE"
+        )
+        cleaned, count = redact.redact_secrets(sample)
+        self.assertEqual(count, 3)
+        self.assertNotIn("sk-proj-", cleaned)
+        self.assertNotIn("ghp_", cleaned)
+        self.assertNotIn("AKIAIOSFODNN7EXAMPLE", cleaned)
+        self.assertIn("[REDACTED_OPENAI_KEY]", cleaned)
+        self.assertIn("[REDACTED_GITHUB_TOKEN]", cleaned)
+        self.assertIn("[REDACTED_AWS_KEY]", cleaned)
+
+    def test_git_context_handoff_pins_and_web_snapshot(self):
+        proj = self.make_project("shop-api")
+        # Simulate a minimal .git repo with branch feat/auth @ abc1234
+        git_refs = os.path.join(proj, ".git", "refs", "heads", "feat")
+        os.makedirs(git_refs, exist_ok=True)
+        with open(os.path.join(proj, ".git", "HEAD"), "w", encoding="utf-8") as f:
+            f.write("ref: refs/heads/feat/auth\n")
+        with open(os.path.join(git_refs, "auth"), "w", encoding="utf-8") as f:
+            f.write("abc1234567890abcdef1234567890abcdef12345\n")
+
+        self.run_hook(
+            "claude",
+            {
+                "prompt": "Fix login with token ghp_1234567890abcdefghijklmnopqrstuv",
+                "cwd": proj,
+            },
+        )
+        self.run_hook("codex", {"prompt": "Add rate limiting middleware", "cwd": proj})
+
+        # Verify Git context & secret redaction in decrypted view
+        view_res = self.run_vault("view", "shop-api")
+        self.assertEqual(view_res.returncode, 0, view_res.stderr)
+        self.assertIn("feat/auth @ abc1234", view_res.stdout)
+        self.assertIn("[REDACTED_GITHUB_TOKEN]", view_res.stdout)
+        self.assertNotIn("ghp_1234567890", view_res.stdout)
+
+        # Verify handoff output
+        h_res = self.run_vault("handoff", "shop-api", "--last", "2", "--no-copy")
+        self.assertEqual(h_res.returncode, 0, h_res.stderr)
+        self.assertIn("# Context Handoff — shop-api", h_res.stdout)
+        self.assertIn("Add rate limiting middleware", h_res.stdout)
+
+        # Verify pin -> pins -> copy -> unpin
+        self.assertEqual(
+            self.run_vault("pin", "shop-api", "2", "--tag", "ratelimit").returncode, 0
+        )
+        pins_res = self.run_vault("pins")
+        self.assertIn("[ratelimit]", pins_res.stdout)
+        copy_res = self.run_vault("copy", "ratelimit", "--no-copy")
+        self.assertIn("Add rate limiting middleware", copy_res.stdout)
+        self.assertEqual(self.run_vault("unpin", "ratelimit").returncode, 0)
+
+        # Verify local Web UI snapshot API
+        old_home = os.environ.get("PROMPTSAVE_HOME")
+        os.environ["PROMPTSAVE_HOME"] = self.state_dir
+        try:
+            snap = web.build_vault_snapshot()
+        finally:
+            if old_home is None:
+                os.environ.pop("PROMPTSAVE_HOME", None)
+            else:
+                os.environ["PROMPTSAVE_HOME"] = old_home
+        self.assertEqual(snap["stats"]["total_prompts"], 2)
+        self.assertEqual(snap["projects"][0]["name"], "shop-api")
+        self.assertEqual(snap["projects"][0]["entries"][0]["git"], "feat/auth @ abc1234")
 
 
 if __name__ == "__main__":

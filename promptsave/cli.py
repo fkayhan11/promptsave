@@ -3,15 +3,21 @@
 Unified `promptsave` CLI entry point.
 
 Usage:
-    promptsave install [--set-center]
+    promptsave install [--center DIR]
     promptsave uninstall
     promptsave status
     promptsave init [path]
     promptsave list
     promptsave view <project>
     promptsave search <query> [--tool ...] [--project ...]
+    promptsave handoff <project> [--last 10] [--no-copy]
+    promptsave pin <project> <number> --tag <name>
+    promptsave pins
+    promptsave copy <tag>
+    promptsave unpin <tag>
     promptsave stats
     promptsave export <project> --format json|md|html [--output file]
+    promptsave ui [--port 8787] [--no-browser]
     promptsave unlock
     promptsave lock
 """
@@ -24,27 +30,49 @@ if SCRIPT_DIR not in sys.path:
 
 import install as installer  # noqa: E402
 import vault  # noqa: E402
+import web  # noqa: E402
 
 try:
     from promptsave import __version__
 except ImportError:
-    __version__ = "1.1.0"
+    __version__ = "1.2.0"
 
 USAGE = f"""PromptSave v{__version__} — Encrypted prompt history vault for AI CLIs
 
 Commands:
   install [--center DIR]     Register global hooks and generate local .env key
   uninstall                  Remove all global hooks (keeps saved prompts)
-  status                     Show hook status, encryption mode, and tracked count
+  status                     Show hook status, encryption, redaction, and tracked count
   init [path]                Start tracking the current directory (or [path])
   list                       List all saved project logs
   view <project>             Decrypt and print a project's prompt history
   search <query> [options]   Search across all encrypted prompt logs
+  handoff <project> [opts]   Build & copy a context-handoff brief for switching AI CLIs
+  pin <proj> <num> -t <tag>  Pin a reusable prompt under a short tag
+  pins                       List all pinned prompts
+  copy <tag>                 Print and copy a pinned prompt to clipboard
+  unpin <tag>                Remove a pinned prompt
   stats                      Show usage statistics by AI tool and project
   export <project> [options] Export prompts to json, md, or html
+  ui [--port 8787]           Launch the local web dashboard (localhost only)
   unlock                     Temporarily decrypt .md.enc -> .md for browsing
   lock                       Encrypt .md -> .md.enc and remove plaintext copies
 """
+
+VAULT_COMMANDS = (
+    "list",
+    "view",
+    "search",
+    "handoff",
+    "pin",
+    "pins",
+    "copy",
+    "unpin",
+    "stats",
+    "export",
+    "unlock",
+    "lock",
+)
 
 
 def cmd_init(args):
@@ -80,7 +108,9 @@ def main(argv=None):
         installer.main(["--status"])
     elif cmd == "init":
         cmd_init(rest)
-    elif cmd in ("list", "view", "search", "stats", "export", "unlock", "lock"):
+    elif cmd == "ui":
+        web.main(rest)
+    elif cmd in VAULT_COMMANDS:
         vault.main([cmd, *rest])
     else:
         print(f"Unknown command: {cmd}\n", file=sys.stderr)

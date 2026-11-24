@@ -36,6 +36,7 @@ INSTALL_DIR = os.path.expanduser(os.environ.get("PROMPTSAVE_HOME", "~/.promptsav
 BACKUP_DIR = os.path.join(INSTALL_DIR, "backups")
 HOOK_DST = os.path.join(INSTALL_DIR, "hook.py")
 CRYPTO_DST = os.path.join(INSTALL_DIR, "crypto.py")
+REDACT_DST = os.path.join(INSTALL_DIR, "redact.py")
 PY = sys.executable or "python3"
 
 CLAUDE_SETTINGS = os.path.join(HOME, ".claude", "settings.json")
@@ -157,10 +158,11 @@ def ensure_env_file(repo_root):
         return env_path, False
     key = crypto.generate_key()
     content = (
-        "# PromptSave local encryption configuration\n"
+        "# PromptSave local encryption & privacy configuration\n"
         "# NEVER commit or share this file! It is gitignored by default.\n"
         f"PROMPTSAVE_KEY={key}\n"
         "PROMPTSAVE_ENCRYPT=true\n"
+        "PROMPTSAVE_REDACT=true\n"
     )
     with open(env_path, "w", encoding="utf-8") as f:
         f.write(content)
@@ -180,6 +182,9 @@ def print_status():
     enc_active = bool(env_vals.get("PROMPTSAVE_KEY")) and env_vals.get(
         "PROMPTSAVE_ENCRYPT", "true"
     ).lower() in ("1", "true", "yes", "on")
+    redact_active = env_vals.get("PROMPTSAVE_REDACT", "true").lower() not in (
+        "0", "false", "no", "off"
+    )
 
     print("PromptSave Status")
     print("-" * 44)
@@ -191,6 +196,7 @@ def print_status():
     print(f"Cursor      : {'ACTIVE' if has_hook(CURSOR_HOOKS, 'cursor') else 'NOT INSTALLED'}")
     print(f"Center dir  : {center or '(not configured)'}")
     print(f"Encryption  : {'ENABLED (.env)' if enc_active else 'DISABLED'}")
+    print(f"Redaction   : {'ENABLED' if redact_active else 'DISABLED'}")
     print(f"Tracked     : {len(reg)} project(s)")
 
 
@@ -238,6 +244,7 @@ def main(argv=None):
         os.makedirs(INSTALL_DIR, exist_ok=True)
         shutil.copy2(os.path.join(HERE, "hook.py"), HOOK_DST)
         shutil.copy2(os.path.join(HERE, "crypto.py"), CRYPTO_DST)
+        shutil.copy2(os.path.join(HERE, "redact.py"), REDACT_DST)
         try:
             os.chmod(HOOK_DST, 0o755)
         except OSError:

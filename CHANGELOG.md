@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-11-24
+
+### Added
+- **AI Context Handoff (`promptsave handoff <project>`)** — Generates a chronological context brief from your recent prompts and copies it to your clipboard so you can switch AI CLIs in seconds.
+- **Automatic Secret Redaction (`promptsave/redact.py`)** — Detects and masks accidentally pasted API keys (OpenAI, Anthropic, GitHub, AWS, Google, Slack), JWTs, Bearer tokens, and private keys before saving (`PROMPTSAVE_REDACT=true`).
+- **Git Branch & Commit Context** — Automatically records `branch @ short_sha` in each prompt header using pure Python (<1ms, no subprocess).
+- **Zero-Dependency Local Web UI (`promptsave ui`)** — Launches a dark-mode localhost dashboard (`127.0.0.1:8787`) with instant search, AI tool filters, one-click copy, pinning, and handoff generation.
+- **Prompt Pinning & Reuse** — `promptsave pin`, `promptsave pins`, `promptsave copy`, and `promptsave unpin` for saving and reusing favorite prompts across projects.
+
 ## [1.1.0] - 2026-11-20
 
 ### Added

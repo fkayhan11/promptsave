@@ -33,6 +33,10 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 import crypto  # noqa: E402
+try:
+    import redact  # noqa: E402
+except ImportError:
+    redact = None
 
 FOLDER_NAME = "promptsave"
 MARKER = ".promptsave"
@@ -114,6 +118,63 @@ def get_encryption_settings(center):
     else:
         enabled = bool(key)
     return enabled and bool(key), key
+
+
+def get_redact_enabled(center):
+    """Return whether automatic secret redaction is enabled (default: True)."""
+    repo_root = os.path.dirname(center)
+    env_vals = crypto.load_env(os.path.join(repo_root, ".env"))
+    flag = os.environ.get("PROMPTSAVE_REDACT") or env_vals.get("PROMPTSAVE_REDACT", "true")
+    return flag.strip().lower() not in ("0", "false", "no", "off")
+
+
+def git_context(project_path):
+    """Read current Git branch and short commit hash in pure Python (<1ms, no subprocess)."""
+    try:
+        git_entry = os.path.join(project_path, ".git")
+        if os.path.isfile(git_entry):
+            with open(git_entry, "r", encoding="utf-8") as f:
+                line = f.read().strip()
+            if line.startswith("gitdir:"):
+                git_dir = line.split(":", 1)[1].strip()
+                if not os.path.isabs(git_dir):
+                    git_dir = os.path.normpath(os.path.join(project_path, git_dir))
+            else:
+                return ""
+        elif os.path.isdir(git_entry):
+            git_dir = git_entry
+        else:
+            return ""
+
+        head_path = os.path.join(git_dir, "HEAD")
+        if not os.path.isfile(head_path):
+            return ""
+        with open(head_path, "r", encoding="utf-8") as f:
+            head = f.read().strip()
+
+        if head.startswith("ref:"):
+            ref = head.split(":", 1)[1].strip()
+            branch = ref[len("refs/heads/"):] if ref.startswith("refs/heads/") else ref
+            sha = ""
+            ref_path = os.path.join(git_dir, *ref.split("/"))
+            if os.path.isfile(ref_path):
+                with open(ref_path, "r", encoding="utf-8") as f:
+                    sha = f.read().strip()[:7]
+            else:
+                packed = os.path.join(git_dir, "packed-refs")
+                if os.path.isfile(packed):
+                    with open(packed, "r", encoding="utf-8") as f:
+                        for raw_line in f:
+                            parts = raw_line.strip().split()
+                            if len(parts) == 2 and parts[1] == ref:
+                                sha = parts[0][:7]
+                                break
+            return f"{branch} @ {sha}" if sha else branch
+        if len(head) >= 7:
+            return f"detached @ {head[:7]}"
+    except Exception:
+        return ""
+    return ""
 
 
 def has_marker(directory, central_repo=None):
@@ -307,7 +368,7 @@ def write_index(center, projects, encrypted, key):
             continue
         if not content:
             continue
-        heads = re.findall(r"^## (\d+)\. (.+?) · (.+)$", content, re.M)
+        heads = re.findall(r"^## (\d+)\. (.+?) · (\d{4}-\d{2}-\d{2} \d{2}:\d{2})", content, re.M)
         if not heads:
             continue
         last = heads[-1]
@@ -351,10 +412,15 @@ def append_entry(center, project_path, tool, prompt):
         fname = project_file(projects, project_path)
         save_json(reg_path, projects)
 
+        if redact is not None and get_redact_enabled(center):
+            prompt, _ = redact.redact_secrets(prompt)
+
         content = read_project_content(center, fname, encrypted, key)
         nums = re.findall(r"^## (\d+)\.", content, re.M)
         n = int(nums[-1]) + 1 if nums else 1
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        git_info = git_context(project_path)
+        git_suffix = f" · {git_info}" if git_info else ""
         fence = code_fence_for(prompt)
 
         if not content:
@@ -364,7 +430,7 @@ def append_entry(center, project_path, tool, prompt):
                 "[Back to Overview](../summary/README.md)\n\n"
             )
         content += (
-            f"## {n}. {TOOL_NAMES.get(tool, tool)} · {now}\n\n"
+            f"## {n}. {TOOL_NAMES.get(tool, tool)} · {now}{git_suffix}\n\n"
             f"{fence}text\n{prompt}\n{fence}\n\n---\n\n"
         )
         write_project_content(center, fname, content, encrypted, key)
